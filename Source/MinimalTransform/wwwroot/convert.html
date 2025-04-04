@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Transformer</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/theme/midnight.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/theme/eclipse.min.css">
+    <style>
+        :root {
+            /* Dark Mode Variables */
+            --bg-primary-dark: #0f172a;
+            --bg-secondary-dark: #1e293b;
+            --accent-primary-dark: #6366f1;
+            --accent-secondary-dark: #4f46e5;
+            --text-primary-dark: #e2e8f0;
+            --text-secondary-dark: #cbd5e1;
+
+            /* Light Mode Variables */
+            --bg-primary-light: #f3f4f6;
+            --bg-secondary-light: #ffffff;
+            --accent-primary-light: #3b82f6;
+            --accent-secondary-light: #2563eb;
+            --text-primary-light: #111827;
+            --text-secondary-light: #374151;
+        }
+
+        /* Dark Mode (Default) */
+        body {
+            background-color: var(--bg-primary-dark);
+            color: var(--text-primary-dark);
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Light Mode Specific Styles */
+        body.light-mode {
+            background-color: var(--bg-primary-light);
+            color: var(--text-primary-light);
+        }
+
+        .converter-tabs {
+            background-color: var(--bg-secondary-dark);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            transition: background-color 0.3s;
+        }
+
+        .light-mode .converter-tabs {
+            background-color: var(--bg-secondary-light);
+        }
+
+        .converter-tab {
+            flex-grow: 1;
+            text-align: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: var(--text-secondary-dark);
+        }
+
+        .light-mode .converter-tab {
+            color: var(--text-secondary-light);
+        }
+
+        .converter-tab.active {
+            background-color: var(--accent-primary-dark);
+            color: white;
+        }
+
+        .light-mode .converter-tab.active {
+            background-color: var(--accent-primary-light);
+        }
+
+        .converter-tab:hover {
+            background-color: var(--accent-secondary-dark);
+            color: white;
+        }
+
+        .light-mode .converter-tab:hover {
+            background-color: var(--accent-secondary-light);
+        }
+
+        .btn-convert {
+            background-color: var(--accent-primary-dark);
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .light-mode .btn-convert {
+            background-color: var(--accent-primary-light);
+        }
+
+        .btn-convert:hover {
+            background-color: var(--accent-secondary-dark);
+        }
+
+        .light-mode .btn-convert:hover {
+            background-color: var(--accent-secondary-light);
+        }
+
+        .btn-clear {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .converter-panel {
+            background-color: var(--bg-secondary-dark);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: background-color 0.3s;
+        }
+        .converter-tabs {
+            display: flex;
+            background-color: var(--bg-secondary-dark);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .converter-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .light-mode .converter-panel {
+            background-color: var(--bg-secondary-light);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+        }
+
+        /* Theme-specific text color adjustments */
+        .light-mode h1, 
+        .light-mode h2, 
+        .light-mode label {
+            color: var(--text-primary-light);
+        }
+
+        .dark-mode h1, 
+        .dark-mode h2, 
+        .dark-mode label {
+            color: var(--text-primary-dark);
+        }
+
+        textarea, input {
+            background-color: var(--bg-primary-dark);
+            color: var(--text-primary-dark);
+            border: 1px solid var(--bg-secondary-dark);
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+
+        .light-mode textarea, 
+        .light-mode input {
+            background-color: var(--bg-primary-light);
+            color: var(--text-primary-light);
+            border-color: var(--bg-secondary-light);
+        }
+
+    </style>
+</head>
+<body class="min-h-screen py-10">
+    <div class="container mx-auto max-w-6xl px-4">
+        <div class="flex items-center justify-between mb-8">
+            <h1 class="text-4xl font-bold text-center text-white">Data Transformer</h1>
+            <div class="flex space-x-2">
+                <button id="openSwaggerBtn" class="btn-convert px-4 py-2 rounded-md">
+                    Explore API Docs
+                </button>
+                <button id="themeToggle" class="btn-convert px-4 py-2 rounded-md">
+                    Toggle Theme
+                </button>
+            </div>
+        </div>
+
+        <div class="converter-tabs">
+            <div class="converter-tab active" data-target="json-xml">JSON ↔ XML</div>
+            <div class="converter-tab" data-target="json-yaml">JSON ↔ YAML</div>
+            <div class="converter-tab" data-target="json-csv">JSON ↔ CSV</div>
+            <div class="converter-tab" data-target="xml-yaml">XML ↔ YAML</div>
+            <div class="converter-tab" data-target="xml-csv">XML ↔ CSV</div>
+            <div class="converter-tab" data-target="yaml-csv">YAML ↔ CSV</div>
+        </div>
+
+        <div id="converterPanels">
+            <!-- JSON ↔ XML Panel -->
+            <div class="converter-panel" id="json-xml">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">JSON/XML Input</h2>
+                        <textarea id="jsonXmlInput" placeholder="Paste your JSON or XML here"></textarea>
+                        <div class="converter-actions">
+                            <button id="convertJsonToXml" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                JSON → XML
+                            </button>
+                            <button id="convertXmlToJson" class="btn-convert px-4 py-2 rounded-md">
+                                XML → JSON
+                            </button>
+                            <button id="loadJsonXmlSample" class="btn-convert px-4 py-2 rounded-md">
+                                Load Sample
+                            </button>
+                            <button id="clearJsonXmlInput" class="btn-clear px-4 py-2 rounded-md">
+                                Clear
+                            </button>
+                        </div>
+                        <div class="mt-2 flex items-center space-x-2">
+                            <label class="text-sm text-white">Indent:</label>
+                            <input type="number" id="jsonXmlIndent" 
+                                class="w-16 px-2 py-1 bg-gray-700 text-white rounded-md" 
+                                min="0" max="8" value="2">
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">Output</h2>
+                        <textarea id="jsonXmlOutput" readonly placeholder="Converted output will appear here"></textarea>
+                        <div class="converter-actions">
+                            <button id="copyJsonXmlOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Copy Output
+                            </button>
+                            <button id="downloadJsonXmlOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other panels would follow a similar structure -->
+            <!-- JSON ↔ YAML Panel -->
+            <div class="converter-panel hidden" id="json-yaml">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">JSON/YAML Input</h2>
+                        <textarea id="jsonYamlInput" placeholder="Paste your JSON or YAML here"></textarea>
+                        <div class="converter-actions">
+                            <button id="convertJsonToYaml" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                JSON → YAML
+                            </button>
+                            <button id="convertYamlToJson" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                YAML → JSON
+                            </button>
+                            <button id="loadJsonYamlSample" class="btn-convert px-4 py-2 rounded-md">
+                                Load Sample
+                            </button>
+                            <button id="clearJsonYamlInput" class="btn-clear px-4 py-2 rounded-md">
+                                Clear
+                            </button>
+                        </div>
+                        <div class="mt-2 flex items-center space-x-2">
+                            <label class="text-sm text-white">Indent:</label>
+                            <input type="number" id="jsonYamlIndent" 
+                                class="w-16 px-2 py-1 bg-gray-700 text-white rounded-md" 
+                                min="0" max="8" value="2">
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">Output</h2>
+                        <textarea id="jsonYamlOutput" readonly placeholder="Converted output will appear here"></textarea>
+                        <div class="converter-actions">
+                            <button id="copyJsonYamlOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Copy Output
+                            </button>
+                            <button id="downloadJsonYamlOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JSON ↔ CSV Panel -->
+            <div class="converter-panel hidden" id="json-csv">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">JSON/CSV Input</h2>
+                        <textarea id="jsonCsvInput" placeholder="Paste your JSON or CSV here"></textarea>
+                        <div class="converter-actions">
+                            <button id="convertJsonToCsv" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                JSON → CSV
+                            </button>
+                            <button id="convertCsvToJson" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                CSV → JSON
+                            </button>
+                            <button id="loadJsonCsvSample" class="btn-convert px-4 py-2 rounded-md">
+                                Load Sample
+                            </button>
+                            <button id="clearJsonCsvInput" class="btn-clear px-4 py-2 rounded-md">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">Output</h2>
+                        <textarea id="jsonCsvOutput" readonly placeholder="Converted output will appear here"></textarea>
+                        <div class="converter-actions">
+                            <button id="copyJsonCsvOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Copy Output
+                            </button>
+                            <button id="downloadJsonCsvOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- XML ↔ YAML Panel -->
+            <div class="converter-panel hidden" id="xml-yaml">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">XML/YAML Input</h2>
+                        <textarea id="xmlYamlInput" placeholder="Paste your XML or YAML here"></textarea>
+                        <div class="converter-actions">
+                            <button id="convertXmlToYaml" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                XML → YAML
+                            </button>
+                            <button id="convertYamlToXml" class="btn-convert px-4 py-2 rounde
+                            d-md flex-grow">
+                                YAML → XML
+                            </button>
+                            <button id="loadXmlYamlSample" class="btn-convert px-4 py-2 rounded-md">
+                                Load Sample
+                            </button>
+                            <button id="clearXmlYamlInput" class="btn-clear px-4 py-2 rounded-md">
+                                Clear
+                            </button>
+                        </div>
+                        <div class="mt-2 flex items-center space-x-2">
+                            <label class="text-sm text-white">Indent:</label>
+                            <input type="number" id="xmlYamlIndent" 
+                                class="w-16 px-2 py-1 bg-gray-700 text-white rounded-md" 
+                                min="0" max="8" value="2">
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">Output</h2>
+                        <textarea id="xmlYamlOutput" readonly placeholder="Converted output will appear here"></textarea>
+                        <div class="converter-actions">
+                            <button id="copyXmlYamlOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Copy Output
+                            </button>
+                            <button id="downloadXmlYamlOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- XML ↔ CSV Panel -->
+            <div class="converter-panel hidden" id="xml-csv">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">XML/CSV Input</h2>
+                        <textarea id="xmlCsvInput" placeholder="Paste your XML or CSV here"></textarea>
+                        <div class="converter-actions">
+                            <button id="convertXmlToCsv" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                XML → CSV
+                            </button>
+                            <button id="convertCsvToXml" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                CSV → XML
+                            </button>
+                            <button id="loadXmlCsvSample" class="btn-convert px-4 py-2 rounded-md">
+                                Load Sample
+                            </button>
+                            <button id="clearXmlCsvInput" class="btn-clear px-4 py-2 rounded-md">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">Output</h2>
+                        <textarea id="xmlCsvOutput" readonly placeholder="Converted output will appear here"></textarea>
+                        <div class="converter-actions">
+                            <button id="copyXmlCsvOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Copy Output
+                            </button>
+                            <button id="downloadXmlCsvOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- YAML ↔ CSV Panel -->
+            <div class="converter-panel hidden" id="yaml-csv">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">YAML/CSV Input</h2>
+                        <textarea id="yamlCsvInput" placeholder="Paste your YAML or CSV here"></textarea>
+                        <div class="converter-actions">
+                            <button id="convertYamlToCsv" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                YAML → CSV
+                            </button>
+                            <button id="convertCsvToYaml" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                CSV → YAML
+                            </button>
+                            <button id="loadYamlCsvSample" class="btn-convert px-4 py-2 rounded-md">
+                                Load Sample
+                            </button>
+                            <button id="clearYamlCsvInput" class="btn-clear px-4 py-2 rounded-md">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold mb-4 text-white">Output</h2>
+                        <textarea id="yamlCsvOutput" readonly placeholder="Converted output will appear here"></textarea>
+                        <div class="converter-actions">
+                            <button id="copyYamlCsvOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Copy Output
+                            </button>
+                            <button id="downloadYamlCsvOutput" class="btn-convert px-4 py-2 rounded-md flex-grow">
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-10 text-center text-gray-400">
+            <p>Built with ❤️ for developers</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.3/mode/yaml/yaml.min.js"></script>
+    
+    <script>
+        // Theme management
+        const themeToggle = document.getElementById('themeToggle');
+        const body = document.body;
+
+        // Function to set theme
+        function setTheme(theme) {
+            if (theme === 'light') {
+                body.classList.add('light-mode');
+                body.classList.remove('dark-mode');
+                Object.values(editors).forEach(editorPair => {
+                    editorPair.input.setOption('theme', 'eclipse');
+                    editorPair.output.setOption('theme', 'eclipse');
+                    editorPair.input.refresh();
+                    editorPair.output.refresh();
+                });
+                document.cookie = `theme=light; expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}; path=/; SameSite=Lax`;
+            } else {
+                body.classList.remove('light-mode');
+                body.classList.add('dark-mode');
+                Object.values(editors).forEach(editorPair => {
+                    editorPair.input.setOption('theme', 'midnight');
+                    editorPair.output.setOption('theme', 'midnight');
+                    editorPair.input.refresh();
+                    editorPair.output.refresh();
+                });
+                document.cookie = `theme=dark; expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}; path=/; SameSite=Lax`;
+            }
+        }
+
+        // Function to get cookie value
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        // Determine initial theme
+        function initTheme() {
+            const storedTheme = getCookie('theme');
+            
+            if (storedTheme) {
+                setTheme(storedTheme);
+                return;
+            }
+
+            // Default to dark theme
+            setTheme('dark');
+        }
+
+        // Theme toggle event listener
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = body.classList.contains('light-mode') ? 'light' : 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+        });
+
+        // Listen for system theme changes (passive listener)
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            // If no theme is explicitly set, update based on system preference
+            if (!getCookie('theme')) {
+                setTheme(e.matches ? 'dark' : 'light');
+            }
+        });
+
+        // Expose initTheme for global use if needed
+        window.initTheme = initTheme;
+    </script>
+    <script>
+        const toast = document.createElement('div');
+        toast.id = 'apiErrorToast';
+        toast.className = 'fixed top-4 right-4 max-w-md bg-red-500 text-white text-sm p-3 rounded-lg shadow-lg cursor-pointer z-50';
+        toast.style.display = 'none';
+        toast.style.whiteSpace = 'nowrap';
+        toast.style.overflow = 'hidden';
+        toast.style.textOverflow = 'ellipsis';
+        toast.style.transition = 'all 0.3s ease';
+        toast.style.maxHeight = '3rem';
+        toast.title = 'Click to expand';
+        document.body.appendChild(toast);
+
+        let isExpanded = false;
+
+        function showError(message) {
+            toast.textContent = message;
+            toast.style.display = 'block';
+            toast.style.whiteSpace = 'nowrap';
+            toast.style.overflow = 'hidden';
+            toast.style.textOverflow = 'ellipsis';
+            toast.style.maxHeight = '3rem';
+            isExpanded = false;
+        }
+
+        toast.addEventListener('click', () => {
+            if (!isExpanded) {
+                toast.style.whiteSpace = 'normal';
+                toast.style.overflow = 'visible';
+                toast.style.textOverflow = 'clip';
+                toast.style.maxHeight = '20rem';
+                isExpanded = true;
+            } else {
+                toast.style.whiteSpace = 'nowrap';
+                toast.style.overflow = 'hidden';
+                toast.style.textOverflow = 'ellipsis';
+                toast.style.maxHeight = '3rem';
+                isExpanded = false;
+            }
+        });
+
+        function createConverter(convertUrl, inputEditor, outputEditor, indentationId = null) {
+            return function () {
+                const input = inputEditor.getValue();
+                const options = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': inputEditor.getOption('mode')
+                    },
+                    body: input
+                };
+
+                if (indentationId) {
+                    const indentation = document.getElementById(indentationId).value;
+                    options.url = `${convertUrl}?indentation=${indentation}`;
+                } else {
+                    options.url = convertUrl;
+                }
+
+                fetch(options.url, options)
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(text);
+                            });
+                        }
+                        return response.text();
+                    })
+                    .then(data => {
+                        console.log('API Result:', data);
+                        outputEditor.setValue(data);
+                        outputEditor.refresh();
+                        outputEditor.scrollTo(0, 0);
+                        toast.style.display = 'none'; // Hide any previous errors
+                    })
+                    .catch(error => {
+                        showError(error.message || 'Unknown error occurred.');
+                    });
+            };
+        }
+    </script>
+    <script>
+
+        document.getElementById('openSwaggerBtn').addEventListener('click', () => {
+            window.open('/swagger', '_self');
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sample data
+            const sampleData = {
+                json: `{
+  "company": {
+    "name": "Acme Corp",
+    "employees": [
+      {"id": 1, "name": "Alice", "role": "Engineer", "skills": ["C#", "JS"]},
+      {"id": 2, "name": "Bob", "role": "Manager", "reports": [
+        {"id": 3, "name": "Charlie"},
+        {"id": 4, "name": "Dana"}
+      ]}
+    ],
+    "isPublic": true,
+    "metadata": null
+  }
+}`,
+                xml: `<?xml version="1.0" encoding="UTF-8"?>
+<company>
+  <name>Acme Corp</name>
+  <employees>
+    <employee>
+      <id>1</id>
+      <name>Alice</name>
+      <role>Engineer</role>
+      <skills>
+        <skill>C#</skill>
+        <skill>JS</skill>
+      </skills>
+    </employee>
+    <employee>
+      <id>2</id>
+      <name>Bob</name>
+      <role>Manager</role>
+      <reports>
+        <report>
+          <id>3</id>
+          <name>Charlie</name>
+        </report>
+        <report>
+          <id>4</id>
+          <name>Dana</name>
+        </report>
+      </reports>
+    </employee>
+  </employees>
+  <isPublic>true</isPublic>
+</company>`,
+                yaml: `company:
+  name: Acme Corp
+  employees:
+    - id: 1
+      name: Alice
+      role: Engineer
+      skills: 
+        - C#
+        - JS
+    - id: 2
+      name: Bob
+      role: Manager
+      reports:
+        - id: 3
+          name: Charlie
+        - id: 4
+          name: Dana
+  isPublic: true
+  metadata: null`,
+                csv: `id,name,role,skills
+1,Alice,Engineer,"C#,JS"
+2,Bob,Manager,`
+            };
+
+            // Tab switching logic
+            const tabs = document.querySelectorAll('.converter-tab');
+            const panels = document.querySelectorAll('.converter-panel');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Remove active from all tabs
+                    tabs.forEach(t => t.classList.remove('active'));
+                    // Hide all panels
+                    panels.forEach(p => p.classList.add('hidden'));
+                    
+                    // Activate current tab
+                    this.classList.add('active');
+                    // Show corresponding panel
+                    const targetPanel = document.getElementById(this.dataset.target);
+                    targetPanel.classList.remove('hidden');
+                });
+            });
+
+            // CodeMirror initialization function
+            function initCodeMirror(elementId, mode, readOnly = false) {
+                return CodeMirror.fromTextArea(document.getElementById(elementId), {
+                    mode: mode,
+                    theme: 'midnight',
+                    lineNumbers: true,
+                    matchBrackets: true,
+                    autoCloseBrackets: true,
+                    readOnly: readOnly,
+                    lineWrapping: true,  // Add line wrapping
+                    extraKeys: {
+                        "Tab": false  // Disable tab for better textarea-like behavior
+                    }
+                });
+            }
+
+            // Initialize CodeMirror for all input/output areas
+            const editors = {
+                jsonXml: {
+                    input: initCodeMirror('jsonXmlInput', 'application/json'),
+                    output: initCodeMirror('jsonXmlOutput', 'application/xml', true)
+                },
+                jsonYaml: {
+                    input: initCodeMirror('jsonYamlInput', 'application/json'),
+                    output: initCodeMirror('jsonYamlOutput', 'text/x-yaml', true)
+                },
+                jsonCsv: {
+                    input: initCodeMirror('jsonCsvInput', 'application/json'),
+                    output: initCodeMirror('jsonCsvOutput', 'text/plain', true)
+                },
+                xmlYaml: {
+                    input: initCodeMirror('xmlYamlInput', 'application/xml'),
+                    output: initCodeMirror('xmlYamlOutput', 'text/x-yaml', true)
+                },
+                xmlCsv: {
+                    input: initCodeMirror('xmlCsvInput', 'application/xml'),
+                    output: initCodeMirror('xmlCsvOutput', 'text/plain', true)
+                },
+                yamlCsv: {
+                    input: initCodeMirror('yamlCsvInput', 'text/x-yaml'),
+                    output: initCodeMirror('yamlCsvOutput', 'text/plain', true)
+                }
+            };
+
+            // Conversion function generator
+            function createConverter(convertUrl, inputEditor, outputEditor, indentationId = null) {
+                return function() {
+                    const input = inputEditor.getValue();
+                    const options = {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': inputEditor.getOption('mode')
+                        },
+                        body: input
+                    };
+
+                    // Add indentation query param if provided
+                    if (indentationId) {
+                        const indentation = document.getElementById(indentationId).value;
+                        options.url = `${convertUrl}?indentation=${indentation}`;
+                    } else {
+                        options.url = convertUrl;
+                    }
+
+                    fetch(options.url, options)
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.text().then(text => { throw new Error(text) });
+                            }
+                            return response.text();
+                        })
+                        .then(data => {
+                            outputEditor.setValue(data);
+                        })
+                        .catch(error => {
+                            alert('Conversion Error: ' + error.message);
+                        });
+                };
+            }
+
+            // Copy and download functions
+            function createCopyHandler(outputEditor) {
+                return function() {
+                    const content = outputEditor.getValue();
+                    navigator.clipboard.writeText(content).then(() => {
+                        alert('Copied to clipboard!');
+                    }).catch(err => {
+                        alert('Failed to copy: ' + err);
+                    });
+                };
+            }
+
+            function createDownloadHandler(outputEditor, defaultName) {
+                return function() {
+                    const content = outputEditor.getValue();
+                    const blob = new Blob([content], { type: 'text/plain' });
+
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = defaultName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                };
+            }
+
+            // Load sample data handlers
+            function createSampleLoader(inputEditor, sampleType) {
+                return function() {
+                    inputEditor.setValue(sampleData[sampleType]);
+                };
+            }
+
+            function createClearHandler(inputEditor, outputEditor) {
+                return function() {
+                    inputEditor.setValue('');
+                    outputEditor.setValue('');
+                };
+            }
+
+            // JSON ↔ XML conversions
+            document.getElementById('convertJsonToXml').addEventListener('click', 
+                createConverter('/api/convert/json-to-xml', 
+                    editors.jsonXml.input, 
+                    editors.jsonXml.output, 
+                    'jsonXmlIndent'
+                )
+            );
+            document.getElementById('convertXmlToJson').addEventListener('click', 
+                createConverter('/api/convert/xml-to-json', 
+                    editors.jsonXml.input, 
+                    editors.jsonXml.output, 
+                    'jsonXmlIndent'
+                )
+            );
+
+            // JSON ↔ YAML conversions
+            document.getElementById('convertJsonToYaml').addEventListener('click', 
+                createConverter('/api/convert/json-to-yaml', 
+                    editors.jsonYaml.input, 
+                    editors.jsonYaml.output, 
+                    'jsonYamlIndent'
+                )
+            );
+            document.getElementById('convertYamlToJson').addEventListener('click', 
+                createConverter('/api/convert/yaml-to-json', 
+                    editors.jsonYaml.input, 
+                    editors.jsonYaml.output, 
+                    'jsonYamlIndent'
+                )
+            );
+
+            // JSON ↔ CSV conversions
+            document.getElementById('convertJsonToCsv').addEventListener('click', 
+                createConverter('/api/convert/json-to-csv', 
+                    editors.jsonCsv.input, 
+                    editors.jsonCsv.output
+                )
+            );
+            document.getElementById('convertCsvToJson').addEventListener('click', 
+                createConverter('/api/convert/csv-to-json', 
+                    editors.jsonCsv.input, 
+                    editors.jsonCsv.output
+                )
+            );
+
+            // XML ↔ YAML conversions
+            document.getElementById('convertXmlToYaml').addEventListener('click', 
+                createConverter('/api/convert/xml-to-yaml', 
+                    editors.xmlYaml.input, 
+                    editors.xmlYaml.output, 
+                    'xmlYamlIndent'
+                )
+            );
+            document.getElementById('convertYamlToXml').addEventListener('click', 
+                createConverter('/api/convert/yaml-to-xml', 
+                    editors.xmlYaml.input, 
+                    editors.xmlYaml.output, 
+                    'xmlYamlIndent'
+                )
+            );
+
+            // XML ↔ CSV conversions
+            document.getElementById('convertXmlToCsv').addEventListener('click', 
+                createConverter('/api/convert/xml-to-csv', 
+                    editors.xmlCsv.input, 
+                    editors.xmlCsv.output
+                )
+            );
+            document.getElementById('convertCsvToXml').addEventListener('click', 
+                createConverter('/api/convert/csv-to-xml', 
+                    editors.xmlCsv.input, 
+                    editors.xmlCsv.output
+                )
+            );
+
+            // YAML ↔ CSV conversions
+            document.getElementById('convertYamlToCsv').addEventListener('click', 
+                createConverter('/api/convert/yaml-to-csv', 
+                    editors.yamlCsv.input, 
+                    editors.yamlCsv.output
+                )
+            );
+            document.getElementById('convertCsvToYaml').addEventListener('click', 
+                createConverter('/api/convert/csv-to-yaml', 
+                    editors.yamlCsv.input, 
+                    editors.yamlCsv.output
+                )
+            );
+
+            // Copy and download for each converter type
+            // JSON ↔ XML
+            document.getElementById('copyJsonXmlOutput').addEventListener('click', 
+                createCopyHandler(editors.jsonXml.output)
+            );
+            document.getElementById('downloadJsonXmlOutput').addEventListener('click', 
+                createDownloadHandler(editors.jsonXml.output, 'converted_data.txt')
+            );
+
+            // JSON ↔ YAML
+            document.getElementById('copyJsonYamlOutput').addEventListener('click', 
+                createCopyHandler(editors.jsonYaml.output)
+            );
+            document.getElementById('downloadJsonYamlOutput').addEventListener('click', 
+                createDownloadHandler(editors.jsonYaml.output, 'converted_data.txt')
+            );
+
+            // JSON ↔ CSV
+            document.getElementById('copyJsonCsvOutput').addEventListener('click', 
+                createCopyHandler(editors.jsonCsv.output)
+            );
+            document.getElementById('downloadJsonCsvOutput').addEventListener('click', 
+                createDownloadHandler(editors.jsonCsv.output, 'converted_data.txt')
+            );
+
+            // XML ↔ YAML
+            document.getElementById('copyXmlYamlOutput').addEventListener('click', 
+                createCopyHandler(editors.xmlYaml.output)
+            );
+            document.getElementById('downloadXmlYamlOutput').addEventListener('click', 
+                createDownloadHandler(editors.xmlYaml.output, 'converted_data.txt')
+            );
+
+            // XML ↔ CSV
+            document.getElementById('copyXmlCsvOutput').addEventListener('click', 
+                createCopyHandler(editors.xmlCsv.output)
+            );
+            document.getElementById('downloadXmlCsvOutput').addEventListener('click', 
+                createDownloadHandler(editors.xmlCsv.output, 'converted_data.txt')
+            );
+
+            // YAML ↔ CSV
+            document.getElementById('copyYamlCsvOutput').addEventListener('click', 
+                createCopyHandler(editors.yamlCsv.output)
+            );
+            document.getElementById('downloadYamlCsvOutput').addEventListener('click', 
+                createDownloadHandler(editors.yamlCsv.output, 'converted_data.txt')
+            );
+
+            // Load sample data for each converter type
+            document.getElementById('loadJsonXmlSample').addEventListener('click', 
+                createSampleLoader(editors.jsonXml.input, 'json')
+            );
+            document.getElementById('loadJsonYamlSample').addEventListener('click', 
+                createSampleLoader(editors.jsonYaml.input, 'json')
+            );
+            document.getElementById('loadJsonCsvSample').addEventListener('click', 
+                createSampleLoader(editors.jsonCsv.input, 'json')
+            );
+            document.getElementById('loadXmlYamlSample').addEventListener('click', 
+                createSampleLoader(editors.xmlYaml.input, 'xml')
+            );
+            document.getElementById('loadXmlCsvSample').addEventListener('click', 
+                createSampleLoader(editors.xmlCsv.input, 'xml')
+            );
+            document.getElementById('loadYamlCsvSample').addEventListener('click', 
+                createSampleLoader(editors.yamlCsv.input, 'yaml')
+            );
+
+            // Clear input handlers
+            document.getElementById('clearJsonXmlInput').addEventListener('click', 
+                createClearHandler(editors.jsonXml.input, editors.jsonXml.output)
+            );
+            document.getElementById('clearJsonYamlInput').addEventListener('click', 
+                createClearHandler(editors.jsonYaml.input, editors.jsonYaml.output)
+            );
+            document.getElementById('clearJsonCsvInput').addEventListener('click', 
+                createClearHandler(editors.jsonCsv.input, editors.jsonCsv.output)
+            );
+            document.getElementById('clearXmlYamlInput').addEventListener('click', 
+                createClearHandler(editors.xmlYaml.input, editors.xmlYaml.output)
+            );
+            document.getElementById('clearXmlCsvInput').addEventListener('click', 
+                createClearHandler(editors.xmlCsv.input, editors.xmlCsv.output)
+            );
+            document.getElementById('clearYamlCsvInput').addEventListener('click', 
+                createClearHandler(editors.yamlCsv.input, editors.yamlCsv.output)
+            );
+
+            // Initialize theme on page load
+            initTheme();
+
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                // Only change if no theme cookie is set
+                if (!getCookie('theme')) {
+                    setTheme(e.matches ? 'dark' : 'light');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

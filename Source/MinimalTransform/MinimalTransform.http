@@ -1,0 +1,6 @@
+@MinimalTransform_HostAddress = http://localhost:5111
+
+GET {{MinimalTransform_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
