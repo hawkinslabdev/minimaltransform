@@ -2,7 +2,7 @@
 
 Effortlessly convert between data formats with a developer-friendly web app and API.
 
-![Screenshot of Swagger UI]([https://raw.githubusercontent.com/hawkinslabdev/minimaltransform/refs/heads/main/Source/example.png](https://raw.githubusercontent.com/hawkinslabdev/minimaltransform/refs/heads/main/Source/image.png))
+![Screenshot of Swagger UI](https://raw.githubusercontent.com/hawkinslabdev/minimaltransform/refs/heads/main/Source/image.png);
 
 
 ## 💡 Features
