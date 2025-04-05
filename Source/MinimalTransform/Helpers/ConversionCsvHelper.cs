@@ -190,12 +190,25 @@ public static class ConversionCsvHelper
     #region Helper Methods
 
     /// <summary>
+    /// Parse delimiter for the helper method
+    /// </summary>
+    private static char DetectDelimiter(string csv)
+    {
+        var delimiters = new[] { ',', ';', '\t', '|', ':' };
+
+        return delimiters
+            .Select(d => new { Delimiter = d, Count = csv.Count(c => c == d) })
+            .OrderByDescending(x => x.Count)
+            .First().Delimiter;
+    }
+
+    /// <summary>
     /// Parse CSV to a list of dynamic records using CsvHelper
     /// </summary>
     private static List<IDictionary<string, object>> ParseCsvToRecords(string csvString)
     {
         var records = new List<IDictionary<string, object>>();
-
+        var delimiter = DetectDelimiter(csvString);
         using (var reader = new StringReader(csvString))
         using (var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
         {
@@ -204,7 +217,7 @@ public static class ConversionCsvHelper
             HeaderValidated = null,
             TrimOptions = TrimOptions.Trim,
             BadDataFound = null,
-            DetectDelimiter = true  // Auto-detect delimiter like comma, tab, etc.
+            Delimiter = delimiter.ToString()
         }))
         {
             try

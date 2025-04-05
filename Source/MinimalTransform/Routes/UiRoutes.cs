@@ -22,33 +22,30 @@ public static class UiRoutes
             await context.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath, "index.html"));
         });
 
+        // Only map fallback for non-API routes
         app.MapFallback(async (HttpContext context) =>
         {
-            if (!context.Request.Path.Value.StartsWith("/api"))
+            // Don't handle API routes in the fallback handler at all
+            if (context.Request.Path.Value.StartsWith("/api"))
             {
-                var filePath = Path.Combine(app.Environment.WebRootPath, context.Request.Path.Value.TrimStart('/'));
-                
-                if (File.Exists(filePath))
-                {
-                    context.Response.ContentType = GetContentType(filePath);
-                    await context.Response.SendFileAsync(filePath);
-                }
-                else
-                {
-                    context.Response.StatusCode = StatusCodes.Status404NotFound;
-                    context.Response.ContentType = "application/json";
-                    await context.Response.WriteAsJsonAsync(new { 
-                        error = "Resource not found",
-                        success = false
-                    });
-                }
+                // Let it pass through to potentially be handled by other middleware
+                await Task.CompletedTask;
+                return;
+            }
+
+            var filePath = Path.Combine(app.Environment.WebRootPath, context.Request.Path.Value.TrimStart('/'));
+            
+            if (File.Exists(filePath))
+            {
+                context.Response.ContentType = GetContentType(filePath);
+                await context.Response.SendFileAsync(filePath);
             }
             else
             {
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
                 context.Response.ContentType = "application/json";
                 await context.Response.WriteAsJsonAsync(new { 
-                    error = "API endpoint not found",
+                    error = "Resource not found",
                     success = false
                 });
             }

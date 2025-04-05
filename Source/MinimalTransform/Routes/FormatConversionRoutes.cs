@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Any;
 using System.Text;
+using Serilog;
 
 namespace MinimalTransform.Routes;  
 
@@ -11,30 +12,7 @@ public static class FormatConversionRoutes
 {
     public static void MapFormatConversionRoutes(this WebApplication app)
     {
-        // Add security filter for all API routes
-        var apiGroup = app.MapGroup("/api/convert").AddEndpointFilter(async (context, next) =>
-        {
-            // Get security settings
-            var apiKeys = Environment.GetEnvironmentVariable("API_KEYS")?.Split(',') ?? Array.Empty<string>();
-            var origins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")?.Split(',') ?? Array.Empty<string>();
-            
-            // Allow same-origin requests
-            if (IsSameOriginRequest(context.HttpContext)) 
-                return await next(context);
-                
-            // Check for valid API key
-            if (context.HttpContext.Request.Headers.TryGetValue("X-API-KEY", out var key) && 
-                apiKeys.Contains(key.ToString()))
-                return await next(context);
-            
-            // Check allowed origins
-            if (context.HttpContext.Request.Headers.TryGetValue("Origin", out var origin) && 
-                origins.Contains(origin.ToString()))
-                return await next(context);
-            
-            // Otherwise reject
-            return Results.Unauthorized();
-        });
+        var apiGroup = app.MapGroup("/api/convert");
 
         // CSV to JSON endpoint
         apiGroup.MapPost("/csv-to-json", async (HttpContext context) =>
@@ -53,9 +31,7 @@ public static class FormatConversionRoutes
                 string jsonString = FormatConverter.CsvToJson(csvString, indentation);
                 
                 // Return the response directly
-                context.Response.ContentType = CommonHelper.GetContentType("json");
-                await context.Response.WriteAsync(jsonString);
-                return Results.Empty;
+                 return Results.Content(jsonString, CommonHelper.GetContentType("json"));
             }
             catch (Exception ex)
             {
@@ -73,22 +49,17 @@ public static class FormatConversionRoutes
         {
             try
             {
-                // Read body as plain text
                 string csvString = await ReadBodyAsText(context.Request);
-                
+
                 if (!CommonHelper.IsValidInput(csvString))
                     return Results.BadRequest("Invalid CSV data");
-                
-                // Get parameters from query
+
                 int indentation = GetIndentationParam(context.Request);
                 string rootName = GetRootNameParam(context.Request);
 
                 string xml = FormatConverter.CsvToXml(csvString, indentation, rootName);
-                
-                // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("xml");
-                await context.Response.WriteAsync(xml);
-                return Results.Empty;
+
+                return Results.Content(xml, CommonHelper.GetContentType("xml"));
             }
             catch (Exception ex)
             {
@@ -115,9 +86,7 @@ public static class FormatConversionRoutes
                 string yaml = FormatConverter.CsvToYaml(csvString);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("yaml");
-                await context.Response.WriteAsync(yaml);
-                return Results.Empty;
+                 return Results.Content(yaml, CommonHelper.GetContentType("yaml"));
             }
             catch (Exception ex)
             {
@@ -144,9 +113,7 @@ public static class FormatConversionRoutes
                 string csv = FormatConverter.JsonToCsv(jsonString);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("csv");
-                await context.Response.WriteAsync(csv);
-                return Results.Empty;
+                 return Results.Content(csv, CommonHelper.GetContentType("csv"));
             }
             catch (Exception ex)
             {
@@ -177,9 +144,7 @@ public static class FormatConversionRoutes
                 string xml = FormatConverter.JsonToXml(jsonString, indentation, rootName);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("xml");
-                await context.Response.WriteAsync(xml);
-                return Results.Empty;
+                return Results.Content(xml, CommonHelper.GetContentType("xml"));
             }
             catch (Exception ex)
             {
@@ -206,9 +171,7 @@ public static class FormatConversionRoutes
                 string yaml = FormatConverter.JsonToYaml(jsonString);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("yaml");
-                await context.Response.WriteAsync(yaml);
-                return Results.Empty;
+                 return Results.Content(yaml, CommonHelper.GetContentType("yaml"));
             }
             catch (Exception ex)
             {
@@ -235,9 +198,7 @@ public static class FormatConversionRoutes
                 string csv = FormatConverter.XmlToCsv(xmlString);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("csv");
-                await context.Response.WriteAsync(csv);
-                return Results.Empty;
+                return Results.Content(csv, CommonHelper.GetContentType("csv"));
             }
             catch (Exception ex)
             {
@@ -267,9 +228,7 @@ public static class FormatConversionRoutes
                 string jsonString = FormatConverter.XmlToJson(xmlString, indentation);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("json");
-                await context.Response.WriteAsync(jsonString);
-                return Results.Empty;
+                 return Results.Content(jsonString, CommonHelper.GetContentType("json"));
             }
             catch (Exception ex)
             {
@@ -296,9 +255,7 @@ public static class FormatConversionRoutes
                 string yaml = FormatConverter.XmlToYaml(xmlString);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("yaml");
-                await context.Response.WriteAsync(yaml);
-                return Results.Empty;
+                 return Results.Content(yaml, CommonHelper.GetContentType("yaml"));
             }
             catch (Exception ex)
             {
@@ -325,9 +282,7 @@ public static class FormatConversionRoutes
                 string csv = FormatConverter.YamlToCsv(yamlString);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("csv");
-                await context.Response.WriteAsync(csv);
-                return Results.Empty;
+                 return Results.Content(csv, CommonHelper.GetContentType("csv"));
             }
             catch (Exception ex)
             {
@@ -357,9 +312,7 @@ public static class FormatConversionRoutes
                 string jsonString = FormatConverter.YamlToJson(yamlString, indentation);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("json");
-                await context.Response.WriteAsync(jsonString);
-                return Results.Empty;
+                 return Results.Content(jsonString, CommonHelper.GetContentType("json"));
             }
             catch (Exception ex)
             {
@@ -390,9 +343,7 @@ public static class FormatConversionRoutes
                 string xml = FormatConverter.YamlToXml(yamlString, indentation, rootName);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType("xml");
-                await context.Response.WriteAsync(xml);
-                return Results.Empty;
+                return Results.Content(xml, CommonHelper.GetContentType("xml"));
             }
             catch (Exception ex)
             {
@@ -431,9 +382,7 @@ public static class FormatConversionRoutes
                 string result = FormatConverter.AutoConvert(inputData, targetFormat, indentation, rootName);
                 
                 // Return the response
-                context.Response.ContentType = CommonHelper.GetContentType(targetFormat);
-                await context.Response.WriteAsync(result);
-                return Results.Empty;
+                return Results.Content(result, CommonHelper.GetContentType(targetFormat));
             }
             catch (Exception ex)
             {
@@ -513,16 +462,6 @@ public static class FormatConversionRoutes
 
             return op;
         }).Accepts<string>("text/plain");
-    }
-
-    // Check if the request is coming from the same origin
-    private static bool IsSameOriginRequest(HttpContext context)
-    {
-        var referer = context.Request.Headers.Referer.ToString();
-        if (string.IsNullOrEmpty(referer)) return false;
-        
-        var host = $"{context.Request.Scheme}://{context.Request.Host}";
-        return referer.StartsWith(host);
     }
 
     // Helper method to read request body as text
