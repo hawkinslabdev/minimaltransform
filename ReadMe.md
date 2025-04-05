@@ -1,9 +1,8 @@
 # 🌐 Minimal Transform
 
-Effortlessly convert between data formats with a developer-friendly web app and API.
+Effortlessly convert between data formats with a developer-friendly web app and API, working along side with an REST API. 
 
-![Screenshot of Swagger UI](https://raw.githubusercontent.com/hawkinslabdev/minimaltransform/refs/heads/main/Source/image.png | width = 250)
-
+<img src="https://raw.githubusercontent.com/hawkinslabdev/minimaltransform/refs/heads/main/Source/image.png" width="800"> 
 
 ## 💡 Features
 - Instant format conversion between JSON, XML, YAML, CSV
