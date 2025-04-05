@@ -2,7 +2,7 @@ using System;
 
 namespace MinimalTransform.Helpers;
 
-// Helper for converting CSV to YAML (via JSON)
+// Helper for converting CSV to YAML
 public static class CsvToYamlHelper
 {
     // Convert CSV string to YAML string
@@ -13,13 +13,8 @@ public static class CsvToYamlHelper
             if (string.IsNullOrWhiteSpace(csvString))
                 throw new ArgumentException("Invalid CSV data");
 
-            // Convert CSV to JSON (no indent for intermediate format)
-            var jsonString = CsvToJsonHelper.ConvertCsvToJson(csvString, indentation: 0);
-
-            // Convert JSON to YAML
-            var yaml = JsonToYamlHelper.ConvertJsonToYaml(jsonString);
-
-            return yaml;
+            // Use the unified ConversionCsvHelper
+            return ConversionCsvHelper.CsvToYaml(csvString);
         }
         catch (Exception ex)
         {

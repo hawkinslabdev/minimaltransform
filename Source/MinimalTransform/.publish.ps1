@@ -15,4 +15,4 @@ foreach ($pattern in $filesToRemove) {
     Get-ChildItem -Path "C:\Repository\MinimalTransform\Deployment\MinimalTransform" -Filter $pattern -Recurse | Remove-Item -Force
 }
 
-Write-Host "✅ Deployment complete. The application has been published to C:\Repository\MinimalTransform\Deployment\MinimalTransform with the original auth.db preserved."
+Write-Host "✅ Deployment complete. The application has been published to C:\Repository\MinimalTransform\Deployment\MinimalTransform."
