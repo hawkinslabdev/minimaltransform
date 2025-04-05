@@ -154,24 +154,43 @@ function initTheme() {
 
 function createConverter(convertUrl, inputEditor, outputEditor, indentationId = null) {
     return function () {
-        const input = inputEditor.getValue();
-        if (!input.trim()) {
+        const input = inputEditor.getValue().trim();
+        
+        if (!input) {
             showError("Please enter some input data first.");
             return;
         }
+        
+        // Dynamically determine content type based on the target conversion
+        const contentTypeMap = {
+            '/json-to-xml': 'application/json',
+            '/json-to-yaml': 'application/json',
+            '/json-to-csv': 'application/json',
+            '/xml-to-json': 'application/xml',
+            '/xml-to-yaml': 'application/xml',
+            '/xml-to-csv': 'application/xml',
+            '/yaml-to-json': 'application/x-yaml',
+            '/yaml-to-xml': 'application/x-yaml',
+            '/yaml-to-csv': 'application/x-yaml',
+            '/csv-to-json': 'text/csv',
+            '/csv-to-xml': 'text/csv',
+            '/csv-to-yaml': 'text/csv'
+        };
+
+        const contentType = contentTypeMap[new URL(convertUrl, window.location.origin).pathname.replace('/api/convert', '')] || 'text/plain';
         
         let url = convertUrl;
         const options = {
             method: 'POST',
             headers: {
-                'Content-Type': inputEditor.getOption('mode')
+                'Content-Type': contentType
             },
             body: input
         };
         
+        // Add indentation parameter if applicable
         if (indentationId) {
-            const indentation = document.getElementById(indentationId)
-                .value;
+            const indentation = document.getElementById(indentationId).value;
             url = `${convertUrl}?indentation=${indentation}`;
         }
         

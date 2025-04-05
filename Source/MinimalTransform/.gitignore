@@ -1,8 +1,6 @@
 # Common folders
 bin/
 obj/
-log/
-logs/
 tokens/
 
 # Specific file types
