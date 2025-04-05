@@ -1,206 +1,444 @@
-
 using System.Text.Json;
 using MinimalTransform.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Any;
+using System.Text;
+
+namespace MinimalTransform.Routes;  
 
 public static class FormatConversionRoutes
 {
     public static void MapFormatConversionRoutes(this WebApplication app)
     {
-        // CSV to JSON endpoint
-        app.MapPost("/api/convert/csv-to-json", ([FromBody] string csvString, [FromQuery] int indentation = 2) =>
+        // Add security filter for all API routes
+        var apiGroup = app.MapGroup("/api/convert").AddEndpointFilter(async (context, next) =>
         {
-            if (!CommonHelper.IsValidInput(csvString))
-                return Results.BadRequest("Invalid CSV data");
+            // Get security settings
+            var apiKeys = Environment.GetEnvironmentVariable("API_KEYS")?.Split(',') ?? Array.Empty<string>();
+            var origins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")?.Split(',') ?? Array.Empty<string>();
+            
+            // Allow same-origin requests
+            if (IsSameOriginRequest(context.HttpContext)) 
+                return await next(context);
+                
+            // Check for valid API key
+            if (context.HttpContext.Request.Headers.TryGetValue("X-API-KEY", out var key) && 
+                apiKeys.Contains(key.ToString()))
+                return await next(context);
+            
+            // Check allowed origins
+            if (context.HttpContext.Request.Headers.TryGetValue("Origin", out var origin) && 
+                origins.Contains(origin.ToString()))
+                return await next(context);
+            
+            // Otherwise reject
+            return Results.Unauthorized();
+        });
 
-            string jsonString = FormatConverter.CsvToJson(csvString, indentation);
-            return Results.Content(jsonString, contentType: CommonHelper.GetContentType("json"));
+        // CSV to JSON endpoint
+        apiGroup.MapPost("/csv-to-json", async (HttpContext context) =>
+        {
+            try
+            {
+                // Read body as plain text
+                string csvString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(csvString))
+                    return Results.BadRequest("Invalid CSV data");
+                
+                // Get indentation from query
+                int indentation = GetIndentationParam(context.Request);
+
+                string jsonString = FormatConverter.CsvToJson(csvString, indentation);
+                
+                // Return the response directly
+                context.Response.ContentType = CommonHelper.GetContentType("json");
+                await context.Response.WriteAsync(jsonString);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts CSV to JSON",
             new[] { "text/csv", "text/plain" },
             "json",
             "File Conversion"
-        ));
+        )).Accepts<string>("text/csv");  // This adds schema information for Swagger
 
         // CSV to XML endpoint
-        app.MapPost("/api/convert/csv-to-xml", ([FromBody] string csvString, [FromQuery] int indentation = 2, [FromQuery] string rootName = "root") =>
+        apiGroup.MapPost("/csv-to-xml", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(csvString))
-                return Results.BadRequest("Invalid CSV data");
+            try
+            {
+                // Read body as plain text
+                string csvString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(csvString))
+                    return Results.BadRequest("Invalid CSV data");
+                
+                // Get parameters from query
+                int indentation = GetIndentationParam(context.Request);
+                string rootName = GetRootNameParam(context.Request);
 
-            string xml = FormatConverter.CsvToXml(csvString, indentation, rootName);
-            return Results.Content(xml, contentType: CommonHelper.GetContentType("xml"));
+                string xml = FormatConverter.CsvToXml(csvString, indentation, rootName);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("xml");
+                await context.Response.WriteAsync(xml);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts CSV to XML",
             new[] { "text/csv", "text/plain" },
             "xml",
             "File Conversion"
-        ));
+        )).Accepts<string>("text/csv");
 
         // CSV to YAML endpoint
-        app.MapPost("/api/convert/csv-to-yaml", ([FromBody] string csvString) =>
+        apiGroup.MapPost("/csv-to-yaml", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(csvString))
-                return Results.BadRequest("Invalid CSV data");
+            try
+            {
+                // Read body as plain text
+                string csvString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(csvString))
+                    return Results.BadRequest("Invalid CSV data");
 
-            string yaml = FormatConverter.CsvToYaml(csvString);
-            return Results.Content(yaml, contentType: CommonHelper.GetContentType("yaml"));
+                string yaml = FormatConverter.CsvToYaml(csvString);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("yaml");
+                await context.Response.WriteAsync(yaml);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts CSV to YAML",
             new[] { "text/csv", "text/plain" },
             "yaml",
             "File Conversion"
-        ));
+        )).Accepts<string>("text/csv");
 
         // JSON to CSV endpoint
-        app.MapPost("/api/convert/json-to-csv", ([FromBody] string jsonString) =>
+        apiGroup.MapPost("/json-to-csv", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(jsonString))
-                return Results.BadRequest("Invalid JSON data");
+            try
+            {
+                // Read body as plain text
+                string jsonString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(jsonString))
+                    return Results.BadRequest("Invalid JSON data");
 
-            string csv = FormatConverter.JsonToCsv(jsonString);
-            return Results.Content(csv, contentType: CommonHelper.GetContentType("csv"));
+                string csv = FormatConverter.JsonToCsv(jsonString);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("csv");
+                await context.Response.WriteAsync(csv);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts JSON to CSV",
             new[] { "application/json", "text/plain" },
             "csv",
             "File Conversion"
-        ));
+        )).Accepts<string>("application/json");
 
         // JSON to XML endpoint
-        app.MapPost("/api/convert/json-to-xml", ([FromBody] string jsonString, [FromQuery] int indentation = 2, [FromQuery] string rootName = "root") =>
+        apiGroup.MapPost("/json-to-xml", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(jsonString))
-                return Results.BadRequest("Invalid JSON data");
+            try
+            {
+                // Read body as plain text
+                string jsonString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(jsonString))
+                    return Results.BadRequest("Invalid JSON data");
+                
+                // Get parameters from query
+                int indentation = GetIndentationParam(context.Request);
+                string rootName = GetRootNameParam(context.Request);
 
-            string xml = FormatConverter.JsonToXml(jsonString, indentation, rootName);
-            return Results.Content(xml, contentType: CommonHelper.GetContentType("xml"));
+                string xml = FormatConverter.JsonToXml(jsonString, indentation, rootName);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("xml");
+                await context.Response.WriteAsync(xml);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts JSON to XML",
             new[] { "application/json", "text/plain" },
             "xml",
             "File Conversion"
-        ));
+        )).Accepts<string>("application/json");
 
         // JSON to YAML endpoint
-        app.MapPost("/api/convert/json-to-yaml", ([FromBody] string jsonString) =>
+        apiGroup.MapPost("/json-to-yaml", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(jsonString))
-                return Results.BadRequest("Invalid JSON data");
+            try
+            {
+                // Read body as plain text
+                string jsonString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(jsonString))
+                    return Results.BadRequest("Invalid JSON data");
 
-            string yaml = FormatConverter.JsonToYaml(jsonString);
-            return Results.Content(yaml, contentType: CommonHelper.GetContentType("yaml"));
+                string yaml = FormatConverter.JsonToYaml(jsonString);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("yaml");
+                await context.Response.WriteAsync(yaml);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts JSON to YAML",
             new[] { "application/json", "text/plain" },
             "yaml",
             "File Conversion"
-        ));
+        )).Accepts<string>("application/json");
 
         // XML to CSV endpoint
-        app.MapPost("/api/convert/xml-to-csv", ([FromBody] string xmlString) =>
+        apiGroup.MapPost("/xml-to-csv", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(xmlString))
-                return Results.BadRequest("Invalid XML data");
+            try
+            {
+                // Read body as plain text
+                string xmlString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(xmlString))
+                    return Results.BadRequest("Invalid XML data");
 
-            string csv = FormatConverter.XmlToCsv(xmlString);
-            return Results.Content(csv, contentType: CommonHelper.GetContentType("csv"));
+                string csv = FormatConverter.XmlToCsv(xmlString);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("csv");
+                await context.Response.WriteAsync(csv);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts XML to CSV",
             new[] { "application/xml", "text/xml", "text/plain" },
             "csv",
             "File Conversion"
-        ));
+        )).Accepts<string>("application/xml");
 
         // XML to JSON endpoint
-        app.MapPost("/api/convert/xml-to-json", ([FromBody] string xmlString, [FromQuery] int indentation = 2) =>
+        apiGroup.MapPost("/xml-to-json", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(xmlString))
-                return Results.BadRequest("Invalid XML data");
+            try
+            {
+                // Read body as plain text
+                string xmlString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(xmlString))
+                    return Results.BadRequest("Invalid XML data");
+                
+                // Get indentation from query
+                int indentation = GetIndentationParam(context.Request);
 
-            string jsonString = FormatConverter.XmlToJson(xmlString, indentation);
-            return Results.Content(jsonString, contentType: CommonHelper.GetContentType("json"));
+                string jsonString = FormatConverter.XmlToJson(xmlString, indentation);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("json");
+                await context.Response.WriteAsync(jsonString);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts XML to JSON",
             new[] { "application/xml", "text/xml", "text/plain" },
             "json",
             "File Conversion"
-        ));
+        )).Accepts<string>("application/xml");
 
         // XML to YAML endpoint
-        app.MapPost("/api/convert/xml-to-yaml", ([FromBody] string xmlString) =>
+        apiGroup.MapPost("/xml-to-yaml", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(xmlString))
-                return Results.BadRequest("Invalid XML data");
+            try
+            {
+                // Read body as plain text
+                string xmlString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(xmlString))
+                    return Results.BadRequest("Invalid XML data");
 
-            string yaml = FormatConverter.XmlToYaml(xmlString);
-            return Results.Content(yaml, contentType: CommonHelper.GetContentType("yaml"));
+                string yaml = FormatConverter.XmlToYaml(xmlString);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("yaml");
+                await context.Response.WriteAsync(yaml);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts XML to YAML",
             new[] { "application/xml", "text/xml", "text/plain" },
             "yaml",
             "File Conversion"
-        ));
+        )).Accepts<string>("application/xml");
 
         // YAML to CSV endpoint
-        app.MapPost("/api/convert/yaml-to-csv", ([FromBody] string yamlString) =>
+        apiGroup.MapPost("/yaml-to-csv", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(yamlString))
-                return Results.BadRequest("Invalid YAML data");
+            try
+            {
+                // Read body as plain text
+                string yamlString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(yamlString))
+                    return Results.BadRequest("Invalid YAML data");
 
-            string csv = FormatConverter.YamlToCsv(yamlString);
-            return Results.Content(csv, contentType: CommonHelper.GetContentType("csv"));
+                string csv = FormatConverter.YamlToCsv(yamlString);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("csv");
+                await context.Response.WriteAsync(csv);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts YAML to CSV",
             new[] { "application/x-yaml", "text/yaml", "text/plain" },
             "csv",
             "File Conversion"
-        ));
+        )).Accepts<string>("application/x-yaml");
 
         // YAML to JSON endpoint
-        app.MapPost("/api/convert/yaml-to-json", ([FromBody] string yamlString, [FromQuery] int indentation = 2) =>
+        apiGroup.MapPost("/yaml-to-json", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(yamlString))
-                return Results.BadRequest("Invalid YAML data");
+            try
+            {
+                // Read body as plain text
+                string yamlString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(yamlString))
+                    return Results.BadRequest("Invalid YAML data");
+                
+                // Get indentation from query
+                int indentation = GetIndentationParam(context.Request);
 
-            string jsonString = FormatConverter.YamlToJson(yamlString, indentation);
-            return Results.Content(jsonString, contentType: CommonHelper.GetContentType("json"));
+                string jsonString = FormatConverter.YamlToJson(yamlString, indentation);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("json");
+                await context.Response.WriteAsync(jsonString);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts YAML to JSON",
             new[] { "application/x-yaml", "text/yaml", "text/plain" },
             "json",
             "File Conversion"
-        ));
+        )).Accepts<string>("application/x-yaml");
 
         // YAML to XML endpoint
-        app.MapPost("/api/convert/yaml-to-xml", ([FromBody] string yamlString, [FromQuery] int indentation = 2, [FromQuery] string rootName = "root") =>
+        apiGroup.MapPost("/yaml-to-xml", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(yamlString))
-                return Results.BadRequest("Invalid YAML data");
+            try
+            {
+                // Read body as plain text
+                string yamlString = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(yamlString))
+                    return Results.BadRequest("Invalid YAML data");
+                
+                // Get parameters from query
+                int indentation = GetIndentationParam(context.Request);
+                string rootName = GetRootNameParam(context.Request);
 
-            string xml = FormatConverter.YamlToXml(yamlString, indentation, rootName);
-            return Results.Content(xml, contentType: CommonHelper.GetContentType("xml"));
+                string xml = FormatConverter.YamlToXml(yamlString, indentation, rootName);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType("xml");
+                await context.Response.WriteAsync(xml);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation => BuildOpenApiWithMultipleContentTypes(
             "Converts YAML to XML",
             new[] { "application/x-yaml", "text/yaml", "text/plain" },
             "xml",
             "File Conversion"
-        ));
+        )).Accepts<string>("application/x-yaml");
 
         // Auto-detect and convert endpoint
-        app.MapPost("/api/convert/auto", ([FromBody] string inputData, [FromQuery] string targetFormat, [FromQuery] int indentation = 2, [FromQuery] string rootName = "root") =>
+        apiGroup.MapPost("/auto", async (HttpContext context) =>
         {
-            if (!CommonHelper.IsValidInput(inputData))
-                return Results.BadRequest("Invalid input data");
+            try
+            {
+                // Read body as plain text
+                string inputData = await ReadBodyAsText(context.Request);
+                
+                if (!CommonHelper.IsValidInput(inputData))
+                    return Results.BadRequest("Invalid input data");
+                
+                // Get required target format parameter
+                if (!context.Request.Query.TryGetValue("targetFormat", out var targetFormatParam))
+                    return Results.BadRequest("Target format is required");
+                
+                string targetFormat = targetFormatParam.ToString().ToLowerInvariant();
+                if (string.IsNullOrEmpty(targetFormat) || !new[] { "json", "xml", "yaml", "csv" }.Contains(targetFormat))
+                    return Results.BadRequest("Invalid target format. Supported formats: json, xml, yaml, csv");
+                
+                // Get optional parameters
+                int indentation = GetIndentationParam(context.Request);
+                string rootName = GetRootNameParam(context.Request);
 
-            targetFormat = targetFormat?.ToLowerInvariant();
-            if (string.IsNullOrEmpty(targetFormat) || !new[] { "json", "xml", "yaml", "csv" }.Contains(targetFormat))
-                return Results.BadRequest("Invalid target format. Supported formats: json, xml, yaml, csv");
-
-            string result = FormatConverter.AutoConvert(inputData, targetFormat, indentation, rootName);
-            return Results.Content(result, contentType: CommonHelper.GetContentType(targetFormat));
+                string result = FormatConverter.AutoConvert(inputData, targetFormat, indentation, rootName);
+                
+                // Return the response
+                context.Response.ContentType = CommonHelper.GetContentType(targetFormat);
+                await context.Response.WriteAsync(result);
+                return Results.Empty;
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(ex.Message);
+            }
         }).WithOpenApi(operation =>
         {
             var op = new OpenApiOperation
@@ -274,7 +512,53 @@ public static class FormatConversionRoutes
             op.Tags = new List<OpenApiTag> { new OpenApiTag { Name = "Format Detection" } };
 
             return op;
-        });
+        }).Accepts<string>("text/plain");
+    }
+
+    // Check if the request is coming from the same origin
+    private static bool IsSameOriginRequest(HttpContext context)
+    {
+        var referer = context.Request.Headers.Referer.ToString();
+        if (string.IsNullOrEmpty(referer)) return false;
+        
+        var host = $"{context.Request.Scheme}://{context.Request.Host}";
+        return referer.StartsWith(host);
+    }
+
+    // Helper method to read request body as text
+    private static async Task<string> ReadBodyAsText(HttpRequest request)
+    {
+        request.EnableBuffering();
+        request.Body.Position = 0;
+        
+        using var reader = new StreamReader(request.Body, Encoding.UTF8, leaveOpen: true);
+        var body = await reader.ReadToEndAsync();
+        request.Body.Position = 0;
+        
+        return body;
+    }
+
+    // Helper method to get indentation parameter with default
+    private static int GetIndentationParam(HttpRequest request)
+    {
+        int indentation = 2; // Default value
+        if (request.Query.TryGetValue("indentation", out var indentParam) && 
+            int.TryParse(indentParam, out var parsedIndent))
+        {
+            indentation = parsedIndent;
+        }
+        return indentation;
+    }
+
+    // Helper method to get rootName parameter with default
+    private static string GetRootNameParam(HttpRequest request)
+    {
+        string rootName = "root"; // Default value
+        if (request.Query.TryGetValue("rootName", out var rootParam))
+        {
+            rootName = rootParam.ToString();
+        }
+        return rootName;
     }
 
     private static OpenApiOperation BuildOpenApiWithMultipleContentTypes(
@@ -301,7 +585,8 @@ public static class FormatConversionRoutes
                         [CommonHelper.GetContentType(responseContentType)] = new OpenApiMediaType()
                     }
                 },
-                ["400"] = new OpenApiResponse { Description = "Bad Request" }
+                ["400"] = new OpenApiResponse { Description = "Bad Request" },
+                ["401"] = new OpenApiResponse { Description = "Unauthorized - API key required" }
             }
         };
 
@@ -309,6 +594,25 @@ public static class FormatConversionRoutes
         {
             operation.RequestBody.Content.Add(contentType, new OpenApiMediaType());
         }
+
+        // Add security information to the OpenAPI operation
+        operation.Security = new List<OpenApiSecurityRequirement>
+        {
+            new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "ApiKey"
+                        }
+                    },
+                    new List<string>()
+                }
+            }
+        };
 
         operation.Tags = new List<OpenApiTag> { new OpenApiTag { Name = tag } };
         return operation;

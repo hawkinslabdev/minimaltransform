@@ -454,7 +454,7 @@ document.addEventListener('DOMContentLoaded', function () {
     
     document.getElementById('openSwaggerBtn')
         .addEventListener('click', () => {
-            window.open('/swagger', '_self');
+            window.open('/swagger', '_blank');
         });
     
     document.getElementById('convertJsonToXml')

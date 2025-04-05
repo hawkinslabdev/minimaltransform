@@ -1,9 +1,11 @@
 using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
+using MinimalTransform.Routes;
 using MinimalTransform.Middleware;
 using MinimalTransform.Classes;
 using MinimalTransform.Configurations;
+using dotenv.net;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -27,14 +29,23 @@ Log.Logger = new LoggerConfiguration()
 
 Log.Information("Starting MinimalTransform application");
 
+DotEnv.Load(options: new DotEnvOptions(probeForEnv: true, probeLevelsToSearch: 2));
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
 builder.Services.AddSwaggerDocumentation();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("RestrictedOrigins", policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
+            ?.Split(',', StringSplitOptions.RemoveEmptyEntries) 
+            ?? Array.Empty<string>();
+            
+        policy
+            .WithOrigins(allowedOrigins)
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
 });
 builder.Services.Configure<StaticFileMiddlewareOptions>(options =>
@@ -57,13 +68,15 @@ app.Lifetime.ApplicationStopping.Register(() =>
     Log.CloseAndFlush();
 });
 
-if (app.Environment.IsDevelopment())
+var swaggerEnabled = builder.Configuration.GetValue<bool>("SwaggerEnabled", false);
+
+if (swaggerEnabled)
 {
-    app.UseSwaggerDocumentation(); 
+    app.UseSwaggerDocumentation();
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+app.UseCors("RestrictedOrigins");
 app.UseStaticFiles();
 app.UseStaticFileProtection();
 
