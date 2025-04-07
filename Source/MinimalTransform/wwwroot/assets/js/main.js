@@ -1,5 +1,7 @@
+// 1. First, extend the sampleData object to include flat (and tabular) examples for each format
 const sampleData = {
-    json: `{
+    // Structured examples (original nested data)
+    structuredJson: `{
   "company": {
     "name": "Acme Corp",
     "employees": [
@@ -13,7 +15,7 @@ const sampleData = {
     "metadata": null
   }
 }`,
-    xml: `<?xml version="1.0" encoding="UTF-8"?>
+    structuredXml: `<?xml version="1.0" encoding="UTF-8"?>
 <company>
   <name>Acme Corp</name>
   <employees>
@@ -44,7 +46,7 @@ const sampleData = {
   </employees>
   <isPublic>true</isPublic>
 </company>`,
-    yaml: `company:
+    structuredYaml: `company:
   name: Acme Corp
   employees:
     - id: 1
@@ -63,9 +65,45 @@ const sampleData = {
           name: Dana
   isPublic: true
   metadata: null`,
-    csv: `id,name,role,skills
+    structuredCsv: `id,name,role,skills
 1,Alice,Engineer,"C#,JS"
-2,Bob,Manager,`
+2,Bob,Manager,`,
+
+    // Flat examples (no nesting, simple key-value pairs)
+    flatJson: `{
+  "id": 1001,
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "age": 35,
+  "active": true,
+  "joinDate": "2022-03-15",
+  "department": "Engineering",
+  "salary": 85000
+}`,
+    flatXml: `<?xml version="1.0" encoding="UTF-8"?>
+<employee>
+  <id>1001</id>
+  <firstName>John</firstName>
+  <lastName>Doe</lastName>
+  <email>john.doe@example.com</email>
+  <age>35</age>
+  <active>true</active>
+  <joinDate>2022-03-15</joinDate>
+  <department>Engineering</department>
+  <salary>85000</salary>
+</employee>`,
+    flatYaml: `id: 1001
+firstName: John
+lastName: Doe
+email: john.doe@example.com
+age: 35
+active: true
+joinDate: 2022-03-15
+department: Engineering
+salary: 85000`,
+    flatCsv: `id,firstName,lastName,email,age,active,joinDate,department,salary
+1001,John,Doe,john.doe@example.com,35,true,2022-03-15,Engineering,85000`
 };
 
 const toast = document.getElementById('apiErrorToast');
@@ -105,51 +143,97 @@ function getCookie(name) {
         .shift();
 }
 
-function setTheme(theme, editors) {
+function getThemePreference() {
+    // Try to get theme from localStorage first (more reliable)
+    const localTheme = localStorage.getItem('theme');
+    if (localTheme) {
+        return localTheme;
+    }
+    
+    // Fall back to cookies if localStorage is not available
+    const cookieTheme = getCookie('theme');
+    if (cookieTheme) {
+        return cookieTheme;
+    }
+    
+    // Check system preference if no stored preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light';
+    }
+    
+    // Default to dark mode
+    return 'dark';
+}
+
+function setTheme(theme, editorsObj) {
+    // Adjust both HTML and body elements
+    const html = document.documentElement;
     const body = document.body;
     
     if (theme === 'light') {
+        html.classList.add('light-mode');
+        html.classList.remove('dark-mode');
         body.classList.add('light-mode');
         body.classList.remove('dark-mode');
-        if (editors) {
-            Object.values(editors)
-                .forEach(editorPair => {
+        // Rest of your light theme code...
+    } else {
+        html.classList.remove('light-mode');
+        html.classList.add('dark-mode');
+        body.classList.remove('light-mode');
+        body.classList.add('dark-mode');
+        // Rest of your dark theme code...
+    }
+    
+    // Save the theme preference
+    try {
+        localStorage.setItem('theme', theme);
+    } catch (e) {
+        console.warn('Could not save theme to localStorage', e);
+    }
+    
+    document.cookie = `theme=${theme}; expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}; path=/; SameSite=Lax`;
+        
+    if (theme === 'light') {
+        body.classList.add('light-mode');
+        body.classList.remove('dark-mode');
+        
+        // Only update editors if they exist
+        if (editorsObj) {
+            Object.values(editorsObj).forEach(editorPair => {
+                if (editorPair.input && editorPair.output) {
                     editorPair.input.setOption('theme', 'eclipse');
                     editorPair.output.setOption('theme', 'eclipse');
-                });
+                }
+            });
         }
-        document.cookie = `theme=light; expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}; path=/; SameSite=Lax`;
     } else {
         body.classList.remove('light-mode');
         body.classList.add('dark-mode');
-        if (editors) {
-            Object.values(editors)
-                .forEach(editorPair => {
+        
+        // Only update editors if they exist
+        if (editorsObj) {
+            Object.values(editorsObj).forEach(editorPair => {
+                if (editorPair.input && editorPair.output) {
                     editorPair.input.setOption('theme', 'midnight');
                     editorPair.output.setOption('theme', 'midnight');
-                });
+                }
+            });
         }
-        document.cookie = `theme=dark; expires=${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString()}; path=/; SameSite=Lax`;
     }
     
-    if (editors) {
-        Object.values(editors)
-            .forEach(editorPair => {
-                editorPair.input.refresh();
-                editorPair.output.refresh();
-            });
+    // Only refresh editors if they exist
+    if (editorsObj) {
+        Object.values(editorsObj).forEach(editorPair => {
+            if (editorPair.input) editorPair.input.refresh();
+            if (editorPair.output) editorPair.output.refresh();
+        });
     }
 }
 
-function initTheme() {
-    const storedTheme = getCookie('theme');
-    if (storedTheme) {
-        setTheme(storedTheme, editors);
-        return storedTheme;
-    }
-    
-    setTheme('dark', editors);
-    return 'dark';
+function initTheme(editorsObj) {
+    const theme = getThemePreference();
+    setTheme(theme, editorsObj);
+    return theme;
 }
 
 function createConverter(convertUrl, inputEditor, outputEditor, indentationId = null) {
@@ -240,8 +324,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .CodeMirror-scroll {
             min-height: 300px !important;
         }
-        
-       
+      
         .CodeMirror-sizer,
         .CodeMirror-gutter,
         .CodeMirror-gutters,
@@ -255,7 +338,6 @@ document.addEventListener('DOMContentLoaded', function () {
             display: none !important;
         }
         
-       
         .converter-panel.init-visible {
             position: absolute !important;
             left: -9999px !important;
@@ -447,11 +529,20 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
     
-    function createSampleLoader(inputEditor, sampleType) {
-        return function () {
-            inputEditor.setValue(sampleData[sampleType]);
-            inputEditor.refresh();
-        };
+    function handleSampleSelection() {
+        document.querySelectorAll('.sample-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const sampleType = this.dataset.sampleType; // 'structured' or 'flat'
+                const format = this.dataset.format; // 'json', 'xml', 'yaml', or 'csv'
+                const converterId = this.closest('.sample-options').id.replace('SampleOptions', '');
+                
+                const editor = editors[converterId].input;
+                const sampleKey = `${sampleType}${format.charAt(0).toUpperCase() + format.slice(1)}`;
+                
+                editor.setValue(sampleData[sampleKey]);
+                editor.refresh();
+            });
+        });
     }
     
     function createClearHandler(inputEditor, outputEditor) {
@@ -571,6 +662,89 @@ document.addEventListener('DOMContentLoaded', function () {
                 editors.yamlCsv.output
             )
         );
+
+    // Initialize dropdown toggle and sample selection events
+    document.querySelectorAll('.sample-loader-dropdown button').forEach(button => {
+        button.addEventListener('click', function(e) {
+            // Find the dropdown associated with this button
+            const dropdown = this.nextElementSibling;
+            
+            // Toggle the display of the dropdown
+            if (dropdown.style.display === 'block') {
+                dropdown.style.display = 'none';
+            } else {
+                // First, close all other dropdowns
+                document.querySelectorAll('.sample-options').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+                dropdown.style.display = 'block';
+            }
+            
+            // Prevent event from propagating to document click handler
+            e.stopPropagation();
+        });
+    });
+
+    // Close dropdowns when clicking elsewhere on the page
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.sample-options').forEach(dropdown => {
+            dropdown.style.display = 'none';
+        });
+    });
+
+    // Prevent clicks inside dropdown from closing it
+    document.querySelectorAll('.sample-options').forEach(dropdown => {
+        dropdown.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    });
+
+    // Handle sample selection for sample options
+    document.querySelectorAll('.sample-option').forEach(option => {
+        option.addEventListener('click', function() {
+            console.log('Sample option clicked!'); // Debugging
+            
+            const sampleType = this.dataset.sampleType; // 'structured' or 'flat'
+            const format = this.dataset.format; // 'json', 'xml', 'yaml', or 'csv'
+            
+            // Get converter ID from parent sample-options ID
+            const optionsId = this.closest('.sample-options').id;
+            console.log('Options ID:', optionsId); // Debugging
+            
+            // Extract the converter id part (e.g., 'jsonXml' from 'jsonXmlSampleOptions')
+            const converterId = optionsId.replace('SampleOptions', '');
+            console.log('Converter ID:', converterId); // Debugging
+            
+            // Build the sample key (e.g., 'flatXml')
+            const sampleKey = `${sampleType}${format.charAt(0).toUpperCase() + format.slice(1)}`;
+            console.log('Sample key:', sampleKey); // Debugging
+            console.log('Sample data available:', Object.keys(sampleData)); // Debugging
+            
+            // Check if editor exists
+            if (!editors[converterId] || !editors[converterId].input) {
+                console.error('Editor not found for converter ID:', converterId);
+                showError(`Editor not found for ${converterId}`);
+                return;
+            }
+            
+            // Check if sample data exists
+            if (!sampleData[sampleKey]) {
+                console.error('Sample data not found for key:', sampleKey);
+                showError(`Sample data not found for ${sampleKey}`);
+                return;
+            }
+            
+            // Set the sample data in the editor
+            const editor = editors[converterId].input;
+            editor.setValue(sampleData[sampleKey]);
+            editor.refresh();
+            
+            // Hide the dropdown
+            this.closest('.sample-options').style.display = 'none';
+            
+            console.log('Sample applied successfully'); // Debugging
+        });
+    });
     
     document.getElementById('copyJsonXmlOutput')
         .addEventListener('click',
@@ -620,31 +794,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('downloadYamlCsvOutput')
         .addEventListener('click',
             createDownloadHandler(editors.yamlCsv.output, 'converted_data.csv')
-        );
-    
-    document.getElementById('loadJsonXmlSample')
-        .addEventListener('click',
-            createSampleLoader(editors.jsonXml.input, 'json')
-        );
-    document.getElementById('loadJsonYamlSample')
-        .addEventListener('click',
-            createSampleLoader(editors.jsonYaml.input, 'json')
-        );
-    document.getElementById('loadJsonCsvSample')
-        .addEventListener('click',
-            createSampleLoader(editors.jsonCsv.input, 'json')
-        );
-    document.getElementById('loadXmlYamlSample')
-        .addEventListener('click',
-            createSampleLoader(editors.xmlYaml.input, 'xml')
-        );
-    document.getElementById('loadXmlCsvSample')
-        .addEventListener('click',
-            createSampleLoader(editors.xmlCsv.input, 'xml')
-        );
-    document.getElementById('loadYamlCsvSample')
-        .addEventListener('click',
-            createSampleLoader(editors.yamlCsv.input, 'yaml')
         );
     
     document.getElementById('clearJsonXmlInput')
@@ -715,4 +864,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }, 500);
+
+    // Initialize sample dropdown selection handlers
+    handleSampleSelection();
 });

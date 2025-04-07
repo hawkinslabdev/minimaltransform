@@ -3,7 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0f172a"> <!-- Dark mode primary background -->
+    <script>
+        // Run this immediately to prevent theme flashing
+        (function() {
+            // Try to get theme preference
+            let theme;
+            try {
+                theme = localStorage.getItem('theme') || 
+                        (document.cookie.match(/theme=(\w+)/) || [])[1] || 
+                        (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            } catch (e) {
+                theme = 'dark'; // Default fallback
+            }
+            
+            // Apply theme to document immediately
+            if (theme === 'light') {
+                document.documentElement.classList.add('light-mode');
+            } else {
+                document.documentElement.classList.add('dark-mode');
+            }
+        })();
+        </script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>Data Transformer</title>
@@ -50,9 +70,17 @@
                             <button id="convertXmlToJson" class="btn-convert px-4 py-2 rounded-md">
                                 XML → JSON
                             </button>
-                            <button id="loadJsonXmlSample" class="btn-convert px-4 py-2 rounded-md">
-                                Load Sample
-                            </button>
+                            <div class="sample-loader-dropdown">
+                                <button id="loadJsonXmlSampleBtn" class="btn-convert px-4 py-2 rounded-md">
+                                    Load Sample
+                                </button>
+                                <div class="sample-options" id="jsonXmlSampleOptions">
+                                    <div class="sample-option" data-sample-type="structured" data-format="json">Structured JSON</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="json">Flat JSON</div>
+                                    <div class="sample-option" data-sample-type="structured" data-format="xml">Structured XML</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="xml">Flat XML</div>
+                                </div>
+                            </div>
                             <button id="clearJsonXmlInput" class="btn-clear px-4 py-2 rounded-md">
                                 Clear
                             </button>
@@ -92,9 +120,17 @@
                             <button id="convertYamlToJson" class="btn-convert px-4 py-2 rounded-md flex-grow">
                                 YAML → JSON
                             </button>
-                            <button id="loadJsonYamlSample" class="btn-convert px-4 py-2 rounded-md">
-                                Load Sample
-                            </button>
+                            <div class="sample-loader-dropdown">
+                                <button id="loadJsonYamlSampleBtn" class="btn-convert px-4 py-2 rounded-md">
+                                    Load Sample
+                                </button>
+                                <div class="sample-options" id="jsonYamlSampleOptions">
+                                    <div class="sample-option" data-sample-type="structured" data-format="json">Structured JSON</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="json">Flat JSON</div>
+                                    <div class="sample-option" data-sample-type="structured" data-format="yaml">Structured YAML</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="yaml">Flat YAML</div>
+                                </div>
+                            </div>
                             <button id="clearJsonYamlInput" class="btn-clear px-4 py-2 rounded-md">
                                 Clear
                             </button>
@@ -134,9 +170,17 @@
                             <button id="convertCsvToJson" class="btn-convert px-4 py-2 rounded-md flex-grow">
                                 CSV → JSON
                             </button>
-                            <button id="loadJsonCsvSample" class="btn-convert px-4 py-2 rounded-md">
-                                Load Sample
-                            </button>
+                            <div class="sample-loader-dropdown">
+                                <button id="loadJsonCsvSampleBtn" class="btn-convert px-4 py-2 rounded-md">
+                                    Load Sample
+                                </button>
+                                <div class="sample-options" id="jsonCsvSampleOptions">
+                                    <div class="sample-option" data-sample-type="structured" data-format="json">Structured JSON</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="json">Flat JSON</div>
+                                    <div class="sample-option" data-sample-type="structured" data-format="csv">Structured CSV</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="csv">Flat CSV</div>
+                                </div>
+                            </div>
                             <button id="clearJsonCsvInput" class="btn-clear px-4 py-2 rounded-md">
                                 Clear
                             </button>
@@ -170,9 +214,17 @@
                             <button id="convertYamlToXml" class="btn-convert px-4 py-2 rounded-md flex-grow">
                                 YAML → XML
                             </button>
-                            <button id="loadXmlYamlSample" class="btn-convert px-4 py-2 rounded-md">
-                                Load Sample
-                            </button>
+                            <div class="sample-loader-dropdown">
+                                <button id="loadXmlYamlSampleBtn" class="btn-convert px-4 py-2 rounded-md">
+                                    Load Sample
+                                </button>
+                                <div class="sample-options" id="xmlYamlSampleOptions">
+                                    <div class="sample-option" data-sample-type="structured" data-format="xml">Structured XML</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="xml">Flat XML</div>
+                                    <div class="sample-option" data-sample-type="structured" data-format="yaml">Structured YAML</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="yaml">Flat YAML</div>
+                                </div>
+                            </div>
                             <button id="clearXmlYamlInput" class="btn-clear px-4 py-2 rounded-md">
                                 Clear
                             </button>
@@ -212,9 +264,17 @@
                             <button id="convertCsvToXml" class="btn-convert px-4 py-2 rounded-md flex-grow">
                                 CSV → XML
                             </button>
-                            <button id="loadXmlCsvSample" class="btn-convert px-4 py-2 rounded-md">
-                                Load Sample
-                            </button>
+                            <div class="sample-loader-dropdown">
+                                <button id="loadXmlCsvSampleBtn" class="btn-convert px-4 py-2 rounded-md">
+                                    Load Sample
+                                </button>
+                                <div class="sample-options" id="xmlCsvSampleOptions">
+                                    <div class="sample-option" data-sample-type="structured" data-format="xml">Structured XML</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="xml">Flat XML</div>
+                                    <div class="sample-option" data-sample-type="structured" data-format="csv">Structured CSV</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="csv">Flat CSV</div>
+                                </div>
+                            </div>
                             <button id="clearXmlCsvInput" class="btn-clear px-4 py-2 rounded-md">
                                 Clear
                             </button>
@@ -248,9 +308,17 @@
                             <button id="convertCsvToYaml" class="btn-convert px-4 py-2 rounded-md flex-grow">
                                 CSV → YAML
                             </button>
-                            <button id="loadYamlCsvSample" class="btn-convert px-4 py-2 rounded-md">
-                                Load Sample
-                            </button>
+                            <div class="sample-loader-dropdown">
+                                <button id="loadYamlCsvSampleBtn" class="btn-convert px-4 py-2 rounded-md">
+                                    Load Sample
+                                </button>
+                                <div class="sample-options" id="yamlCsvSampleOptions">
+                                    <div class="sample-option" data-sample-type="structured" data-format="yaml">Structured YAML</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="yaml">Flat YAML</div>
+                                    <div class="sample-option" data-sample-type="structured" data-format="csv">Structured CSV</div>
+                                    <div class="sample-option" data-sample-type="flat" data-format="csv">Flat CSV</div>
+                                </div>
+                            </div>
                             <button id="clearYamlCsvInput" class="btn-clear px-4 py-2 rounded-md">
                                 Clear
                             </button>
